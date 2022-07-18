@@ -1,44 +1,42 @@
 { PubSub } = require "@google-cloud/pubsub"
-{ grpc } = require "grpc"
+grpc = require "grpc"
 fibrous = require "fibrous"
 require("dotenv").config()
 
 class PubSubAdapter
-  constructor: (topicName, subscriptionName) ->
-    topicName = process.env.topicName
-    subscriptionName = process.env.subscriptionName
-    @pubsub = new PubSub grpc, projectId: process.env.projectId
+  constructor: (@topicName, @subscriptionName, @projectId) ->
+    @pubsub = new PubSub {grpc, projectId: @projectId}
   
-  publishMessage: (data) =>
-    dataBuffer = Buffer.from(JSON.stringify data)
+  publishMessage: (data, callback) =>
+    #data must be an object
     try
-      fibrous.run () =>
-        pubSubClient = @pubsub.topic process.env.topicName
-        message = pubSubClient.publishMessage {data: dataBuffer}
-      , (err, rs) ->
-        console.log "Message #{messageId} published with data ${data}"
+      dataBuffer = Buffer.from(JSON.stringify data)
+      topic = @pubsub.topic @topicName
+      messageId = topic.publishMessage {data: dataBuffer}
+      return messageId
     catch err
-      console.error "Received error while publishing: #{error.message}"
-      process.exitCode = 1
+      console.log err
+      callback err, null
     
-    listenForMessages: (timeout) =>
-      messageCount = 0
-      messageHandler = message ->
-        console.log "Received message #{message.id}: "
+  listenForMessages: (timeout) =>
+    try
+      messageHandler = (message) ->
+        console.log "Received message #{message.id}:"
         console.log "Data: #{message.data}"
-        console.log "Attributes: #{message.attributes}"
-        console.log "Received message:", JSON.parse message.data.toString()
-        messageCount+=1
-        # "Ack" (acknowledge receipt of) the message
+        console.log "Received message: ", JSON.parse message.data.toString()
         message.ack()
-      
-      subcription = @pubsub.subcription process.env.subscriptionName
-      
-      setTimeout () ->
-        subcription.removeListener "message", messageHandler
-        console.log "#{messageCount} message(s) received."
-      , timeout * 1000
-      
 
+      subscription = @pubsub.subscription @subscriptionName
+      subscription.on "message", messageHandler
+      setTimeout (->
+        subscription.removeListener 'message', messageHandler
+        return
+      ), timeout * 1000
+    catch err
+      console.log err
+
+
+      
+module.exports = PubSubAdapter
   
     
