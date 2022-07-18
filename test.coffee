@@ -1,0 +1,1 @@
+PubSubAdapter = require "./pubSubAdapter.coffee"
