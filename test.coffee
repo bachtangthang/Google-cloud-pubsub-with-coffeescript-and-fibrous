@@ -13,12 +13,28 @@ data =
   product_id: "1000",
   portal_id: 1,
 
+onMessages = (message) ->
+  console.log "message.id: ", message.id
+  console.log "message.data: ", JSON.parse message.data.toString()
+  message.ack()
 
-fibrous.run () ->
-  pubsub = new PubSubAdapter process.env.topicName, process.env.subscriptionName, process.env.projectId
-  pubsub.publishMessage data
-  pubsub.sync.listenForMessages 10
-, (err, result) ->
-  console.log err
-  console.log result
-  
+pubsub = new PubSubAdapter process.env.topicName, process.env.subscriptionName, process.env.projectId
+
+# fibrous.run () ->
+#   pubsub.sync.publishMessage data
+# , (err, result) ->
+#   console.log "err: ", err
+#   console.log "result: ", result
+
+pubsub.listenForMessages onMessages
+
+module.exports =
+  pubsub: pubsub
+  onMessages: onMessages
+
+setTimeout (->
+  pubsub.removeListeners onMessages
+  return
+), 60 * 1000
+
+
